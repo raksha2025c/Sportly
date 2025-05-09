@@ -1,0 +1,161 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>NYC Sports Events</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        .tab-buttons {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+            .tab-buttons button {
+                margin: 0 10px;
+                padding: 10px 20px;
+            }
+
+        .tab-content {
+            display: none;
+        }
+
+        .active {
+            display: block;
+        }
+
+        .event-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px auto;
+            max-width: 400px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+            .event-card img {
+                width: 100%;
+                border-radius: 5px;
+            }
+    </style>
+</head>
+<body>
+
+    <h1>NYC Sports Events</h1>
+
+    <div class="tab-buttons">
+        <button onclick="showTab('home')">Home</button>
+        <button onclick="showTab('myevents')">My Events</button>
+    </div>
+
+    <div id="home" class="tab-content active">
+        <div id="event-list">Loading events...</div>
+    </div>
+
+    <div id="myevents" class="tab-content">
+        <div id="liked-events">No liked events.</div>
+    </div>
+
+    <script>
+        const liked = new Set();
+
+        function showTab(id) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            if (id === 'myevents') renderLikedEvents();
+        }
+
+        function renderLikedEvents() {
+            const list = document.getElementById('liked-events');
+            list.innerHTML = '';
+            if (liked.size === 0) {
+                list.innerHTML = '<p>No liked events.</p>';
+                return;
+            }
+
+            liked.forEach(event => {
+                const card = document.createElement('div');
+                card.className = 'event-card';
+                card.innerHTML = `
+            <img src="${event.image}" alt="Event Image" />
+            <h3>${event.name}</h3>
+            <p><strong>Venue:</strong> ${event.venue}</p>
+            <p><strong>Date:</strong> ${event.date}</p>
+            <button onclick="toggleLike('${event.id}')">💔 Remove</button>
+          `;
+                list.appendChild(card);
+            });
+        }
+
+        function toggleLike(id) {
+            const event = eventMap[id];
+            if (liked.has(event)) {
+                liked.delete(event);
+            } else {
+                liked.add(event);
+            }
+            renderEvents();
+            renderLikedEvents();
+        }
+
+        const eventMap = {};
+
+        function renderEvents() {
+            const list = document.getElementById('event-list');
+            list.innerHTML = '';
+            Object.values(eventMap).forEach(event => {
+                const card = document.createElement('div');
+                card.className = 'event-card';
+                card.innerHTML = `
+            <img src="${event.image}" alt="Event Image" />
+            <h3>${event.name}</h3>
+            <p><strong>Venue:</strong> ${event.venue}</p>
+            <p><strong>Date:</strong> ${event.date}</p>
+            <button onclick="toggleLike('${event.id}')">
+              ${[...liked].some(e => e.id === event.id) ? '💔 Remove' : '❤️ Like'}
+            </button>
+          `;
+                list.appendChild(card);
+            });
+        }
+
+        // Fetch events from Ticketmaster API
+        async function fetchEvents() {
+            const API_KEY = 'L6RWGlvNGuRNVneIGFaVkzlobl2ZicL4'; // <-- Replace this
+            const url = `https://app.ticketmaster.com/discovery/v2/events.json?classificationName=sports&city=New+York&apikey=${API_KEY}`;
+
+            try {
+                const res = await fetch(url);
+                const data = await res.json();
+                const events = data._embedded?.events || [];
+
+                events.forEach(e => {
+                    const id = e.id;
+                    const name = e.name;
+                    const date = e.dates?.start?.localDate || 'TBD';
+                    const venue = e._embedded?.venues[0]?.name || 'Unknown Venue';
+                    const image = e.images?.[0]?.url || '';
+
+                    eventMap[id] = { id, name, date, venue, image };
+                });
+
+                renderEvents();
+            } catch (err) {
+                document.getElementById('event-list').innerHTML = '<p>Error loading events. Please check your API key.</p>';
+                console.error(err);
+            }
+        }
+
+        window.onload = fetchEvents;
+    </script>
+
+</body>
+</html>
